@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# Runtime data
+data/store.json
+
+# Local Claude Code config
+.claude/
+
+# Environment / secrets
+.env
+.env*.local
+
+# OS
+.DS_Store
+
+# Logs
+*.log
