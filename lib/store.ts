@@ -81,10 +81,11 @@ function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
+    const data = JSON.stringify(rawStore(), null, 2);
+    const tmpPath = DATA_FILE + ".tmp";
     fs.mkdir(path.dirname(DATA_FILE), { recursive: true })
-      .then(() =>
-        fs.writeFile(DATA_FILE, JSON.stringify(rawStore(), null, 2), "utf-8")
-      )
+      .then(() => fs.writeFile(tmpPath, data, "utf-8"))
+      .then(() => fs.rename(tmpPath, DATA_FILE))
       .catch(() => {});
   }, 400);
 }
