@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { addFileRecord, getSession } from "@/lib/store";
-import { extractText, ExtractError, isSupported } from "@/lib/extract";
+import { extractText, ExtractError, isSupported, MAX_FILE_BYTES } from "@/lib/extract";
 import { PY_BACKEND_URL } from "@/lib/py";
 
 export const runtime = "nodejs";
@@ -23,6 +23,13 @@ export async function POST(req: Request, { params }: Ctx) {
   const file = form.get("file");
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "No file field provided" }, { status: 400 });
+  }
+
+  if (file.size > MAX_FILE_BYTES) {
+    return NextResponse.json(
+      { error: `File exceeds the ${MAX_FILE_BYTES / 1024 / 1024} MB limit.` },
+      { status: 413 }
+    );
   }
 
   const baseUrl = (form.get("baseUrl") as string | null) ?? "";
