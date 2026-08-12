@@ -3,55 +3,59 @@
 /* ------------------------------------------------------------------ */
 
 :root[data-theme="dark"] {
-  --bg: #0b0b0d;
-  --bg-glow-1: rgba(10, 132, 255, 0.16);
-  --bg-glow-2: rgba(94, 92, 230, 0.12);
+  --bg: #08090c;
+  --bg-glow-1: rgba(10, 132, 255, 0.2);
+  --bg-glow-2: rgba(124, 106, 255, 0.14);
   --surface: rgba(255, 255, 255, 0.055);
-  --surface-2: rgba(255, 255, 255, 0.09);
-  --surface-solid: #1c1c1e;
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.16);
+  --surface-2: rgba(255, 255, 255, 0.095);
+  --surface-solid: #1b1c22;
+  --border: rgba(255, 255, 255, 0.085);
+  --border-strong: rgba(255, 255, 255, 0.17);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
   --text: #f5f5f7;
-  --text-2: rgba(235, 235, 245, 0.62);
-  --text-3: rgba(235, 235, 245, 0.38);
+  --text-2: rgba(235, 235, 245, 0.66);
+  --text-3: rgba(235, 235, 245, 0.4);
   --accent: #0a84ff;
-  --accent-2: #5e5ce6;
-  --accent-grad: linear-gradient(135deg, #0a84ff, #5e5ce6);
-  --accent-soft: rgba(10, 132, 255, 0.16);
+  --accent-2: #7a8cff;
+  --accent-grad: linear-gradient(135deg, #0a84ff 0%, #6a7bff 100%);
+  --accent-soft: rgba(10, 132, 255, 0.17);
+  --ring: rgba(10, 132, 255, 0.4);
   --danger: #ff453a;
   --danger-soft: rgba(255, 69, 58, 0.16);
   --ok: #30d158;
   --code-bg: rgba(0, 0, 0, 0.42);
   --inline-code: rgba(255, 255, 255, 0.09);
-  --shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
-  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.28);
-  --blur: blur(22px) saturate(180%);
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.34);
+  --blur: blur(24px) saturate(190%);
 }
 
 :root[data-theme="light"] {
-  --bg: #f2f2f4;
-  --bg-glow-1: rgba(0, 113, 227, 0.10);
-  --bg-glow-2: rgba(125, 95, 240, 0.08);
+  --bg: #f3f3f6;
+  --bg-glow-1: rgba(0, 113, 227, 0.11);
+  --bg-glow-2: rgba(124, 106, 255, 0.09);
   --surface: rgba(255, 255, 255, 0.62);
-  --surface-2: rgba(255, 255, 255, 0.8);
+  --surface-2: rgba(255, 255, 255, 0.82);
   --surface-solid: #ffffff;
   --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.14);
-  --text: #1d1d1f;
-  --text-2: rgba(0, 0, 0, 0.55);
-  --text-3: rgba(0, 0, 0, 0.34);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --text: #1c1c1f;
+  --text-2: rgba(0, 0, 0, 0.56);
+  --text-3: rgba(0, 0, 0, 0.35);
   --accent: #0071e3;
-  --accent-2: #7d5ff0;
-  --accent-grad: linear-gradient(135deg, #0071e3, #7d5ff0);
+  --accent-2: #6d53ff;
+  --accent-grad: linear-gradient(135deg, #0071e3 0%, #6d53ff 100%);
   --accent-soft: rgba(0, 113, 227, 0.12);
+  --ring: rgba(0, 113, 227, 0.32);
   --danger: #ff3b30;
   --danger-soft: rgba(255, 59, 48, 0.12);
   --ok: #34c759;
   --code-bg: rgba(0, 0, 0, 0.045);
   --inline-code: rgba(0, 0, 0, 0.06);
-  --shadow: 0 18px 48px rgba(0, 0, 0, 0.16);
-  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.09);
-  --blur: blur(22px) saturate(180%);
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.11);
+  --blur: blur(24px) saturate(190%);
 }
 
 * {
@@ -141,6 +145,7 @@ textarea {
   top: -180px;
   right: -120px;
   background: var(--bg-glow-1);
+  animation: drift-one 26s ease-in-out infinite alternate;
 }
 .app::after {
   width: 480px;
@@ -148,12 +153,60 @@ textarea {
   bottom: -160px;
   left: -140px;
   background: var(--bg-glow-2);
+  animation: drift-two 32s ease-in-out infinite alternate;
+}
+@keyframes drift-one {
+  to {
+    transform: translate(-70px, 50px) scale(1.12);
+  }
+}
+@keyframes drift-two {
+  to {
+    transform: translate(60px, -40px) scale(1.08);
+  }
+}
+
+/* Apple-style polish ---------------------------------------------------- */
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.app,
+.sidebar {
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+.composer-box {
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-sm);
+}
+.session-item.active {
+  background: linear-gradient(90deg, var(--accent-soft), transparent 85%);
+}
+.session-item.active .session-name {
+  color: var(--accent);
+}
+.btn-new,
+.model-trigger,
+.theme-toggle,
+.icon-btn,
+.session-item {
+  transition: background 0.14s ease, transform 0.06s ease, color 0.14s ease,
+    border-color 0.14s ease, box-shadow 0.2s ease;
+}
+.msg.user .msg-content {
+  background: var(--accent-grad);
+  box-shadow: 0 8px 22px rgba(10, 132, 255, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 /* Sidebar ------------------------------------------------------------ */
 
 .sidebar {
   width: 268px;
+  min-width: 0;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -161,6 +214,22 @@ textarea {
   -webkit-backdrop-filter: var(--blur);
   backdrop-filter: var(--blur);
   border-right: 1px solid var(--border);
+  overflow: hidden;
+  transition: width 0.28s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.sidebar.collapsed {
+  width: 0;
+  border-right: 0;
+}
+
+.sidebar-head-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.chev-left {
+  transform: rotate(90deg);
 }
 
 .sidebar-head {
@@ -385,7 +454,38 @@ textarea {
   flex: 1;
 }
 
+.tokens-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-3);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.15s ease;
+}
+.tokens-stat .t-in {
+  color: var(--accent);
+}
+.tokens-stat .t-dot {
+  color: var(--text-3);
+}
+.tokens-stat .t-out {
+  color: var(--text-2);
+}
+
 /* Messages ------------------------------------------------------------ */
+
+.chat-region {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 
 .chat-scroll {
   flex: 1;
@@ -516,6 +616,10 @@ textarea {
   color: var(--text-3);
   margin-top: 6px;
   padding-left: 2px;
+}
+.msg-usage {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
 /* Markdown ------------------------------------------------------------ */

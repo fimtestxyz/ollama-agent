@@ -29,6 +29,12 @@ function Svg({
   );
 }
 
+export const IconMenu = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </Svg>
+);
+
 export const IconPlus = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 5v14M5 12h14" />

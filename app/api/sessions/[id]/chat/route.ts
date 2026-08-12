@@ -3,14 +3,15 @@ import {
   addMessage,
   buildContextText,
   getSession,
-  retrieveContext,
   type Message,
+  type RetrievedChunk,
 } from "@/lib/store";
 import {
   chatStream,
   normalizeBaseUrl,
   type OllamaChatMessage,
 } from "@/lib/ollama";
+import { PY_BACKEND_URL } from "@/lib/py";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,40 @@ type Ctx = { params: Promise<{ id: string }> };
 
 const MAX_HISTORY = 12;
 const ERROR_MARKER = "\n\n[error]";
+
+async function fetchPythonContext(
+  sessionId: string,
+  query: string,
+  baseUrl: string,
+  embedModel: string
+): Promise<RetrievedChunk[]> {
+  try {
+    const res = await fetch(`${PY_BACKEND_URL}/retrieve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: sessionId,
+        query,
+        base_url: baseUrl,
+        embed_model: embedModel,
+        top_k: 6,
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const strategy: "embed" | "fulltext" =
+      data.strategy === "embed" ? "embed" : "fulltext";
+    return (data.chunks ?? []).map((c: { text: string; file: string; score: number }) => ({
+      text: c.text,
+      file: c.file,
+      score: c.score,
+      strategy,
+    }));
+  } catch {
+    return []; // Python offline → answer from general knowledge.
+  }
+}
 
 function buildSystemPrompt(context: string, hasFiles: boolean): string {
   const base =
@@ -62,7 +97,7 @@ export async function POST(req: Request, { params }: Ctx) {
 
   const hasFiles = session.files.length > 0;
   const retrieved = hasFiles
-    ? await retrieveContext(id, userText, baseUrl, embedModel ?? "")
+    ? await fetchPythonContext(id, userText, baseUrl, embedModel ?? "")
     : [];
 
   const history: OllamaChatMessage[] = session.messages
@@ -75,13 +110,23 @@ export async function POST(req: Request, { params }: Ctx) {
   ];
 
   const encoder = new TextEncoder();
+  const USAGE_MARKER = "\n\n[usage]";
   const readable = new ReadableStream<Uint8Array>({
     async start(controller) {
       let full = "";
+      let usage: { input: number; output: number } | undefined;
       try {
-        for await (const delta of chatStream(baseUrl, model, messages)) {
-          full += delta;
-          controller.enqueue(encoder.encode(delta));
+        for await (const chunk of chatStream(baseUrl, model, messages)) {
+          if (chunk.delta) {
+            full += chunk.delta;
+            controller.enqueue(encoder.encode(chunk.delta));
+          }
+          if (chunk.usage) usage = chunk.usage;
+        }
+        if (usage) {
+          controller.enqueue(
+            encoder.encode(USAGE_MARKER + JSON.stringify(usage) + "[/usage]\n")
+          );
         }
         controller.close();
       } catch (err) {
@@ -93,7 +138,7 @@ export async function POST(req: Request, { params }: Ctx) {
         controller.close();
         return;
       }
-      if (full) await addMessage(id, { role: "assistant", content: full });
+      if (full) await addMessage(id, { role: "assistant", content: full, usage });
     },
   });
 

@@ -1,6 +1,5 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { embed } from "./ollama";
 
 const DATA_FILE = path.join(process.cwd(), "data", "store.json");
 
@@ -9,11 +8,7 @@ export type Message = {
   role: "user" | "assistant";
   content: string;
   createdAt: string;
-};
-
-export type Chunk = {
-  text: string;
-  embedding?: number[];
+  usage?: { input: number; output: number };
 };
 
 export type FileDoc = {
@@ -22,7 +17,8 @@ export type FileDoc = {
   size: number;
   mime: string;
   strategy: "embed" | "fulltext";
-  chunks: Chunk[];
+  charCount: number;
+  chunkCount: number;
   preview: string;
 };
 
@@ -180,82 +176,23 @@ export async function addMessage(
 /*  Files                                                              */
 /* ------------------------------------------------------------------ */
 
-function chunkText(text: string, size = 1500, overlap = 150): string[] {
-  const normalized = text.replace(/\r/g, "").trim();
-  if (!normalized) return [];
-  if (normalized.length <= size) return [normalized];
+export type AddFileParams = {
+  name: string;
+  size: number;
+  mime: string;
+  strategy: FileDoc["strategy"];
+  charCount: number;
+  chunkCount: number;
+  preview: string;
+};
 
-  const paragraphs = normalized
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  const chunks: string[] = [];
-  let current = "";
-
-  for (const para of paragraphs) {
-    if (current.length + para.length + 2 <= size) {
-      current += (current ? "\n\n" : "") + para;
-    } else {
-      if (current) chunks.push(current);
-      if (para.length > size) {
-        let i = 0;
-        while (i < para.length) {
-          chunks.push(para.slice(i, i + size));
-          i += size - overlap;
-        }
-        current = "";
-      } else {
-        current = para;
-      }
-    }
-  }
-  if (current) chunks.push(current);
-  return chunks;
-}
-
-export async function addFile(
+export async function addFileRecord(
   sessionId: string,
-  meta: { name: string; size: number; mime: string },
-  text: string,
-  baseUrl: string,
-  embedModel: string
+  params: AddFileParams
 ): Promise<FileDoc> {
   const session = await getSession(sessionId);
   if (!session) throw new Error("Session not found");
-
-  const chunks = chunkText(text);
-  let strategy: FileDoc["strategy"] = "fulltext";
-  const indexed: Chunk[] = [];
-
-  if (chunks.length && embedModel) {
-    try {
-      const embeddings: number[][] = [];
-      for (let i = 0; i < chunks.length; i += 16) {
-        const batch = chunks.slice(i, i + 16);
-        const result = await embed(baseUrl, embedModel, batch);
-        embeddings.push(...result);
-        if (result.length !== batch.length) throw new Error("embed count mismatch");
-      }
-      if (embeddings.length === chunks.length) {
-        indexed.push(...chunks.map((text, i) => ({ text, embedding: embeddings[i] })));
-        strategy = "embed";
-      }
-    } catch {
-      // Embedding unavailable (model missing / not pulled) → fulltext fallback.
-    }
-  }
-
-  if (indexed.length === 0) {
-    indexed.push(...chunks.map((text) => ({ text })));
-  }
-
-  const file: FileDoc = {
-    id: uid(),
-    ...meta,
-    strategy,
-    chunks: indexed,
-    preview: text.slice(0, 200),
-  };
+  const file: FileDoc = { id: uid(), ...params };
   session.files.push(file);
   touch(session);
   return file;
@@ -275,38 +212,8 @@ export async function removeFile(
 }
 
 /* ------------------------------------------------------------------ */
-/*  Retrieval                                                          */
+/*  Public views                                                       */
 /* ------------------------------------------------------------------ */
-
-function tokenize(s: string): string[] {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter((w) => w.length > 1);
-}
-
-function keywordScore(text: string, query: string): number {
-  const q = tokenize(query);
-  if (!q.length) return 0;
-  const terms = new Set(tokenize(text));
-  let hits = 0;
-  for (const w of q) if (terms.has(w)) hits++;
-  return hits / q.length;
-}
-
-function cosine(a: number[], b: number[]): number {
-  let dot = 0;
-  let na = 0;
-  let nb = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
-  }
-  const denom = Math.sqrt(na) * Math.sqrt(nb);
-  return denom === 0 ? 0 : dot / denom;
-}
 
 export type RetrievedChunk = {
   text: string;
@@ -315,56 +222,13 @@ export type RetrievedChunk = {
   strategy: "embed" | "fulltext";
 };
 
-export async function retrieveContext(
-  sessionId: string,
-  query: string,
-  baseUrl: string,
-  embedModel: string,
-  topK = 6
-): Promise<RetrievedChunk[]> {
-  const session = await getSession(sessionId);
-  if (!session || !session.files.length) return [];
-
-  const allChunks = session.files.flatMap((f) =>
-    f.chunks.map((c) => ({
-      text: c.text,
-      file: f.name,
-      strategy: f.strategy,
-      embedding: c.embedding,
-    }))
-  );
-  if (!allChunks.length) return [];
-
-  const embedChunks = allChunks.filter((c) => c.embedding);
-  const textChunks = allChunks.filter((c) => !c.embedding);
-
-  if (embedChunks.length && embedModel) {
-    try {
-      const [q] = await embed(baseUrl, embedModel, [query]);
-      if (q) {
-        const scored = embedChunks.map((c) => ({
-          ...c,
-          score: cosine(q, c.embedding!),
-        }));
-        scored.push(...textChunks.map((c) => ({ ...c, score: keywordScore(c.text, query) })));
-        scored.sort((a, b) => b.score - a.score);
-        return scored.slice(0, topK);
-      }
-    } catch {
-      // Fall through to keyword-only retrieval.
-    }
-  }
-
-  const scored = allChunks.map((c) => ({ ...c, score: keywordScore(c.text, query) }));
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, topK).filter((c) => c.score > 0);
-}
-
 export type PublicFile = {
   id: string;
   name: string;
   size: number;
   strategy: FileDoc["strategy"];
+  charCount: number;
+  chunkCount: number;
   preview: string;
 };
 
@@ -389,6 +253,8 @@ export function publicSession(session: Session): PublicSession {
       name: f.name,
       size: f.size,
       strategy: f.strategy,
+      charCount: f.charCount,
+      chunkCount: f.chunkCount,
       preview: f.preview,
     })),
   };

@@ -7,7 +7,8 @@ import Composer from "./Composer";
 import FileChips from "./FileChips";
 import ModelPicker from "./ModelPicker";
 import SettingsPopover from "./SettingsPopover";
-import { IconPencil, IconX } from "./icons";
+import { IconMenu, IconPencil, IconX } from "./icons";
+import { formatTokens } from "./format";
 import { DEFAULT_SETTINGS, type Settings, type SessionSummary, type UiMessage, type UiSession } from "./types";
 
 const LS_SETTINGS = "herdr-settings";
@@ -43,6 +44,7 @@ export default function ChatApp() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [toast, setToast] = useState<ToastState>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const activeIdRef = useRef<string | null>(null);
   const modelRef = useRef(model);
@@ -400,29 +402,50 @@ export default function ChatApp() {
       const decoder = new TextDecoder();
       let acc = "";
       let errored = false;
+      let usage: { input: number; output: number } | undefined;
+      let buf = "";
+
+      const updateContent = () => {
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                messages: prev.messages.map((m) =>
+                  m.id === botId ? { ...m, content: acc } : m
+                ),
+              }
+            : prev
+        );
+      };
 
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          const errIdx = chunk.indexOf("\n\n[error]");
+          buf += decoder.decode(value, { stream: true });
+
+          const errIdx = buf.indexOf("\n\n[error]");
           if (errIdx !== -1) {
-            acc += chunk.slice(0, errIdx);
+            acc += buf.slice(0, errIdx);
             errored = true;
             break;
           }
-          acc += chunk;
-          setSession((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  messages: prev.messages.map((m) =>
-                    m.id === botId ? { ...m, content: acc } : m
-                  ),
-                }
-              : prev
-          );
+          const useIdx = buf.indexOf("\n\n[usage]");
+          if (useIdx !== -1) {
+            acc += buf.slice(0, useIdx);
+            const m = buf.slice(useIdx).match(/\[usage\](.*?)\[\/usage\]/);
+            if (m) {
+              try {
+                usage = JSON.parse(m[1]);
+              } catch {}
+            }
+            break;
+          }
+          // Flush content, keeping a small tail so a split marker still matches.
+          const safe = Math.max(0, buf.length - 200);
+          acc += buf.slice(0, safe);
+          buf = buf.slice(safe);
+          updateContent();
         }
       } finally {
         reader.releaseLock();
@@ -435,7 +458,7 @@ export default function ChatApp() {
           error: acc ? undefined : "The model stopped unexpectedly.",
         });
       } else {
-        finalize({ status: undefined });
+        finalize({ status: undefined, ...(usage ? { usage } : {}) });
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") {
@@ -482,6 +505,21 @@ export default function ChatApp() {
 
   const busy = streaming || uploadingName !== null;
 
+  const totals = (session?.messages ?? []).reduce(
+    (t, m) => {
+      if (m.usage) {
+        t.input += m.usage.input;
+        t.output += m.usage.output;
+      }
+      return t;
+    },
+    { input: 0, output: 0 }
+  );
+
+  const collapseOnChatClick = useCallback(() => {
+    setSidebarOpen((o) => (o ? false : o));
+  }, []);
+
   return (
     <div className="app">
       <Sidebar
@@ -491,10 +529,19 @@ export default function ChatApp() {
         onNew={createNew}
         onDelete={handleDelete}
         connected={connected}
+        open={sidebarOpen}
+        onToggle={() => setSidebarOpen((o) => !o)}
       />
 
       <main className="main">
         <div className="topbar">
+          <button
+            className="icon-btn"
+            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            onClick={() => setSidebarOpen((o) => !o)}
+          >
+            <IconMenu size={18} />
+          </button>
           {editingName ? (
             <input
               className="session-title"
@@ -523,6 +570,14 @@ export default function ChatApp() {
 
           <div className="topbar-spacer" />
 
+          {session && (totals.input || totals.output) && (
+            <span className="tokens-stat" title="Tokens used in this conversation">
+              <span className="t-in">{formatTokens(totals.input)} in</span>
+              <span className="t-dot">·</span>
+              <span className="t-out">{formatTokens(totals.output)} out</span>
+            </span>
+          )}
+
           <ModelPicker
             models={models}
             value={model}
@@ -539,32 +594,34 @@ export default function ChatApp() {
           />
         </div>
 
-        <div style={{ padding: "10px 20px 0" }}>
-          <div style={{ maxWidth: 780, margin: "0 auto" }}>
-            {session && session.files.length > 0 && (
-              <FileChips
-                files={session.files}
-                uploadingName={uploadingName}
-                onRemove={handleRemoveFile}
-              />
-            )}
+        <div className="chat-region" onClick={collapseOnChatClick}>
+          <div style={{ padding: "10px 20px 0" }}>
+            <div style={{ maxWidth: 780, margin: "0 auto" }}>
+              {session && session.files.length > 0 && (
+                <FileChips
+                  files={session.files}
+                  uploadingName={uploadingName}
+                  onRemove={handleRemoveFile}
+                />
+              )}
+            </div>
           </div>
-        </div>
 
-        {loadingSession ? (
-          <div className="empty">
-            <span className="msg-thinking">
-              Loading
-              <span className="dots">
-                <span />
-                <span />
-                <span />
+          {loadingSession ? (
+            <div className="empty">
+              <span className="msg-thinking">
+                Loading
+                <span className="dots">
+                  <span />
+                  <span />
+                  <span />
+                </span>
               </span>
-            </span>
-          </div>
-        ) : (
-          <ChatView messages={session?.messages ?? []} currentModel={model} />
-        )}
+            </div>
+          ) : (
+            <ChatView messages={session?.messages ?? []} currentModel={model} />
+          )}
+        </div>
 
         <div className="composer-wrap">
           <Composer

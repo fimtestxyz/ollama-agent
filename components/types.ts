@@ -1,3 +1,8 @@
+export type TokenUsage = {
+  input: number;
+  output: number;
+};
+
 export type UiMessage = {
   id: string;
   role: "user" | "assistant";
@@ -5,6 +10,7 @@ export type UiMessage = {
   createdAt: string;
   status?: "streaming" | "error";
   error?: string;
+  usage?: TokenUsage;
 };
 
 export type UiFile = {

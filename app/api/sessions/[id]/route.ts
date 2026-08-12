@@ -5,6 +5,7 @@ import {
   publicSession,
   renameSession,
 } from "@/lib/store";
+import { PY_BACKEND_URL } from "@/lib/py";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   const { id } = await params;
   const ok = await deleteSession(id);
   if (!ok) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  fetch(`${PY_BACKEND_URL}/session/${id}`, { method: "DELETE" }).catch(() => {});
   return NextResponse.json({ ok: true });
 }
 

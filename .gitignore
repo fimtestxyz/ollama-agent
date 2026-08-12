@@ -8,6 +8,13 @@ tsconfig.tsbuildinfo
 
 # Runtime data
 data/store.json
+python/index/
+logs/
+
+# Python backend
+python/.venv/
+__pycache__/
+*.pyc
 
 # Local Claude Code config
 .claude/

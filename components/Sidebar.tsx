@@ -1,6 +1,6 @@
 "use client";
 
-import { IconPlus, IconSparkles, IconTrash } from "./icons";
+import { IconChevron, IconPlus, IconSparkles, IconTrash } from "./icons";
 import { formatTime } from "./format";
 import type { SessionSummary } from "./types";
 
@@ -11,6 +11,8 @@ export default function Sidebar({
   onNew,
   onDelete,
   connected,
+  open,
+  onToggle,
 }: {
   summaries: SessionSummary[];
   activeId: string | null;
@@ -18,15 +20,22 @@ export default function Sidebar({
   onNew: () => void;
   onDelete: (id: string) => void;
   connected: boolean | null;
+  open: boolean;
+  onToggle: () => void;
 }) {
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${open ? "" : " collapsed"}`}>
       <div className="sidebar-head">
-        <div className="brand">
-          <span className="brand-mark">
-            <IconSparkles size={15} />
-          </span>
-          Herdr
+        <div className="sidebar-head-top">
+          <div className="brand">
+            <span className="brand-mark">
+              <IconSparkles size={15} />
+            </span>
+            Herdr
+          </div>
+          <button className="icon-btn" title="Collapse sidebar" onClick={onToggle}>
+            <IconChevron size={16} className="chev-left" />
+          </button>
         </div>
         <button className="btn-new" onClick={onNew}>
           <IconPlus size={16} />

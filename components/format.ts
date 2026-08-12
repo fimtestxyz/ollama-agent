@@ -6,6 +6,12 @@ export function formatBytes(n: number): string {
   return `${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
 }
 
+export function formatTokens(n: number): string {
+  if (!n) return "0";
+  if (n < 1000) return String(n);
+  return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+}
+
 export function formatTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";

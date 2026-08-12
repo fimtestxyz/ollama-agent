@@ -66,24 +66,14 @@ export async function listModels(baseUrl: string): Promise<OllamaModel[]> {
   return data.models ?? [];
 }
 
-export async function embed(
-  baseUrl: string,
-  model: string,
-  input: string[]
-): Promise<number[][]> {
-  const data = await fetchJson<{ embeddings: number[][] }>(
-    `${normalizeBaseUrl(baseUrl)}/api/embed`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model, input }),
-    }
-  );
-  return data.embeddings ?? [];
-}
+export type ChatStreamChunk = {
+  delta?: string;
+  usage?: { input: number; output: number };
+};
 
 /**
- * Stream a chat completion from Ollama. Yields content deltas as they arrive.
+ * Stream a chat completion from Ollama. Yields deltas as they arrive, plus a
+ * final usage chunk carrying prompt/eval token counts.
  * Throws an OllamaError if the connection fails or the model errors out.
  */
 export async function* chatStream(
@@ -91,7 +81,7 @@ export async function* chatStream(
   model: string,
   messages: OllamaChatMessage[],
   options?: { num_ctx?: number; temperature?: number }
-): AsyncGenerator<string> {
+): AsyncGenerator<ChatStreamChunk> {
   const url = `${normalizeBaseUrl(baseUrl)}/api/chat`;
   let res: Response;
   try {
@@ -146,7 +136,15 @@ export async function* chatStream(
         }
         if (json.error) throw new OllamaError(String(json.error), 502);
         const delta: string = json.message?.content ?? "";
-        if (delta) yield delta;
+        if (delta) yield { delta };
+        if (json.done) {
+          yield {
+            usage: {
+              input: json.prompt_eval_count ?? 0,
+              output: json.eval_count ?? 0,
+            },
+          };
+        }
       }
     }
   } finally {

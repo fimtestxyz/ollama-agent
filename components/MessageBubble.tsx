@@ -2,7 +2,7 @@
 
 import Markdown from "./Markdown";
 import { IconSparkles } from "./icons";
-import { formatTime } from "./format";
+import { formatTime, formatTokens } from "./format";
 import type { UiMessage } from "./types";
 
 export default function MessageBubble({ message }: { message: UiMessage }) {
@@ -35,7 +35,15 @@ export default function MessageBubble({ message }: { message: UiMessage }) {
         </div>
         {isError && <div className="msg-error">{message.error}</div>}
         {!!message.content && !streaming && (
-          <div className="msg-time">{formatTime(message.createdAt)}</div>
+          <div className="msg-time">
+            {message.usage && (
+              <span className="msg-usage">
+                {formatTokens(message.usage.input)} in ·{" "}
+                {formatTokens(message.usage.output)} out ·{" "}
+              </span>
+            )}
+            {formatTime(message.createdAt)}
+          </div>
         )}
       </div>
     </div>
