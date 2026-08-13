@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import ChatView from "./ChatView";
 import Composer from "./Composer";
@@ -10,7 +11,6 @@ import SettingsPopover from "./SettingsPopover";
 import { IconMenu, IconPencil, IconX } from "./icons";
 import { formatTokens } from "./format";
 import { DEFAULT_SETTINGS, type Settings, type SessionSummary, type UiMessage, type UiSession } from "./types";
-
 const LS_SETTINGS = "herdr-settings";
 const LS_MODEL = "herdr-model";
 const LS_SESSION = "herdr-session";
@@ -27,6 +27,9 @@ function loadSettings(): Settings {
 type ToastState = { msg: string; kind: "info" | "error" } | null;
 
 export default function ChatApp() {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [models, setModels] = useState<string[]>([]);
   const [model, setModel] = useState<string>("");
@@ -180,20 +183,26 @@ export default function ChatApp() {
       try {
         localStorage.setItem(LS_SESSION, data.session.id);
       } catch {}
+      router.push(`/chat/${data.session.id}`);
     } catch {
       setToast({ msg: "Failed to create a conversation", kind: "error" });
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const initial = async () => {
       await refreshAll();
+      const pathId = pathname?.startsWith("/chat/") ? pathname.split("/chat/")[1]?.split("?")[0] : null;
       const savedId = localStorage.getItem(LS_SESSION);
       const sessions = await loadSummaries();
-      if (savedId && sessions.some((s) => s.id === savedId)) {
+      if (pathId && sessions.some((s) => s.id === pathId)) {
+        openSession(pathId);
+      } else if (savedId && sessions.some((s) => s.id === savedId)) {
         openSession(savedId);
+        router.replace(`/chat/${savedId}`);
       } else if (sessions.length) {
         openSession(sessions[0].id);
+        router.replace(`/chat/${sessions[0].id}`);
       }
     };
     initial();
@@ -208,8 +217,9 @@ export default function ChatApp() {
       try {
         localStorage.setItem(LS_SESSION, id);
       } catch {}
+      router.push(`/chat/${id}`);
     },
-    [streaming, openSession]
+    [streaming, openSession, router]
   );
 
   const handleDelete = useCallback(

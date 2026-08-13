@@ -3,6 +3,7 @@
 import { IconChevron, IconPlus, IconSparkles, IconTrash } from "./icons";
 import { formatTime } from "./format";
 import type { SessionSummary } from "./types";
+import { useSession, signOut } from "next-auth/react";
 
 export default function Sidebar({
   summaries,
@@ -23,6 +24,9 @@ export default function Sidebar({
   open: boolean;
   onToggle: () => void;
 }) {
+  const { data: session } = useSession();
+  const userName = session?.user?.name || session?.user?.email || "Signed in";
+
   return (
     <aside className={`sidebar${open ? "" : " collapsed"}`}>
       <div className="sidebar-head">
@@ -37,6 +41,14 @@ export default function Sidebar({
             <IconChevron size={16} className="chev-left" />
           </button>
         </div>
+        {session?.user && (
+          <div className="user-info">
+            <span className="user-name">{userName}</span>
+            <button className="btn-signout" onClick={() => signOut({ callbackUrl: "/login" })}>
+              Sign out
+            </button>
+          </div>
+        )}
         <button className="btn-new" onClick={onNew}>
           <IconPlus size={16} />
           New chat

@@ -12,6 +12,9 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
+import Providers from "./providers";
+
+
 const themeBoot = `try{var t=localStorage.getItem('herdr-theme');if(!t)t=(matchMedia&&matchMedia('(prefers-color-scheme:light)').matches)?'light':'dark';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','dark')}`;
 
 export default function RootLayout({
@@ -24,7 +27,9 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

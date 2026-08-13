@@ -1244,3 +1244,29 @@ textarea:focus-visible {
     margin-left: 0;
   }
 }
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 4px 12px;
+  font-size: 13px;
+}
+.user-name {
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.btn-signout {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-signout:hover {
+  background: var(--surface);
+}
